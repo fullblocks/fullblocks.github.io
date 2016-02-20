@@ -8,27 +8,54 @@
 <!-- Github got confused -->
 
 <style>
+html {
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  background: #fff;
+  color: #222;
+}
+
 #percent {
   font: 300px Arial;
   font-weight: bold;
   text-align: center;
   color: #222;
   text-shadow: 0 10px #777;
+}
+
+#text {
+  color: #555;
+  text-align: center;
+}
+
+#stats {
 
 }
+
 </style>
 
 </head>
 
 <body>
 <div id="percent">...</div>
+<div id="text">
+  <div id="stats"></div>
+  <a href="#" id="reset">Reset Stats</a>
+</div>
 <script>
 $(function () {
-  var blockLimit = 1024 * 1024;
+  var maxBlockSize = 1024 * 1024;
+  var minTransactions = 10;
   var sizes = {};
   var averageSize = 0;
   var blockCount = 0;
   var percentFull = 0;
+  var emptyBlocks = 0;
+  var cache = {};
+
+  if (localStorage && localStorage.cache) {
+    cache = JSON.parse(localStorage.cache);
+  }
 
   function handleError(msg) {
     alert(msg);
@@ -36,17 +63,23 @@ $(function () {
 
   function addSize(hash, bytes) {
     if (hash in sizes) { return; }
+    bytes = Number(bytes);
     blockCount++;
     sizes[hash] = bytes;
     averageSize = 0;
     Object.keys(sizes).forEach(function (key) { averageSize += sizes[key]; });
     averageSize = averageSize / blockCount;
-    percentFull = Math.round((averageSize / blockLimit) * 100);
-
+    percentFull = Math.round((averageSize / maxBlockSize) * 100);
     $('#percent').text(String(percentFull) + "%");
+    updateStats();
   }
 
   function fetchBlock(x, f) {
+    if (x !== 'latest' && (x in cache)) {
+      f(cache[x], true);
+      return;
+    }
+
     return $.ajax({
       url: "http://btc.blockr.io/api/v1/block/info/" + String(x),
       success: function (response) {
@@ -55,15 +88,55 @@ $(function () {
           return;
         }
 
-        f(response.data)
+        cache[response.data.hash] = response.data;
+        localStorage.cache = JSON.stringify(cache);
+        f(response.data, false)
       }
     });
   }
 
-  fetchBlock('latest', function (block) {
+  function updateStats() {
+    var parts = [String(blockCount) + " blocks"];
+    if (emptyBlocks) { parts.push(String(emptyBlocks) + " empty blocks"); }
+
+    $('#stats').text(parts.join(' - '));
+  }
+
+  function addEmptyBlock() {
+    blockCount++;
+    emptyBlocks++;
+    updateStats();
+  }
+
+  function receiveBlock(block, cached) {
     if (!block) { return handleError("Unable to fetch latest block"); }
-    addSize(block.hash, block.size);
-  });
+
+    if (block.nb_txs >= minTransactions) {
+      addSize(block.hash, block.size);
+    } else {
+      addEmptyBlock();
+    }
+
+    if (blockCount >= (10 * 6)) { return; }
+
+    if (cached) {
+      fetchBlock(block.prev_block_hash, receiveBlock);
+    } else {
+      setTimeout(function () {
+        fetchBlock(block.prev_block_hash, receiveBlock);
+      }, 1000);
+    }
+
+    $('#reset').click(function () {
+      if (localStorage) {
+        cache = {};
+        localStorage.cache = '{}';
+        window.location = 'index.html';
+      }
+    });
+  }
+
+  fetchBlock('latest', receiveBlock);
 });
 </script>
 </body>
