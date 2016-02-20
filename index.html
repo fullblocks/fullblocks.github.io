@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>How full are Bitcoin blocks?</title>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+
+<style>
+#percent {
+  font: 300px Arial;
+  font-weight: bold;
+  text-align: center;
+  color: #222;
+  text-shadow: 0 10px #777;
+
+}
+</style>
+
+</head>
+
+<body>
+<div id="percent">...</div>
+<script>
+$(function () {
+  var blockLimit = 1024 * 1024;
+  var sizes = {};
+  var averageSize = 0;
+  var blockCount = 0;
+  var percentFull = 0;
+
+  function handleError(msg) {
+    alert(msg);
+  }
+
+  function addSize(hash, bytes) {
+    if (hash in sizes) { return; }
+    blockCount++;
+    sizes[hash] = bytes;
+    averageSize = 0;
+    Object.keys(sizes).forEach(function (key) { averageSize += sizes[key]; });
+    averageSize = averageSize / blockCount;
+    percentFull = Math.round((averageSize / blockLimit) * 100);
+
+    $('#percent').text(String(percentFull) + "%");
+  }
+
+  function fetchBlock(x, f) {
+    return $.ajax({
+      url: "http://btc.blockr.io/api/v1/block/info/" + String(x),
+      success: function (response) {
+        if (!response || response.status !== 'success') {
+          f();
+          return;
+        }
+
+        f(response.data)
+      }
+    });
+  }
+
+  fetchBlock('latest', function (block) {
+    if (!block) { return handleError("Unable to fetch latest block"); }
+    addSize(block.hash, block.size);
+  });
+});
+</script>
+</body>
+
+</html>
