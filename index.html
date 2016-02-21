@@ -92,7 +92,7 @@ $(function () {
     }
 
     return $.ajax({
-      url: "http://btc.blockr.io/api/v1/block/info/" + String(x),
+      url: "https://btc.blockr.io/api/v1/block/info/" + String(x),
       success: function (response) {
         if (!response || response.status !== 'success') {
           f();
