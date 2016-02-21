@@ -40,12 +40,19 @@ html {
 <div id="percent">...</div>
 <div id="text">
   <div id="stats"></div>
-  <a href="#" id="reset">Reset Stats</a>
+  <div>
+    <a href="#" id="reset">Reset Stats</a> -
+    <a href="#" id="size12h">12h</a> -
+    <a href="#" id="size24h">24h</a> -
+    <a href="#" id="size48h">48h</a>
+  </div>
+
 </div>
 <script>
 $(function () {
   var maxBlockSize = 1024 * 1024;
   var minTransactions = 10;
+  var maxBlockCount = 6 * 12;
   var sizes = {};
   var averageSize = 0;
   var blockCount = 0;
@@ -55,6 +62,10 @@ $(function () {
 
   if (localStorage && localStorage.cache) {
     cache = JSON.parse(localStorage.cache);
+  }
+
+  if (localStorage && localStorage.maxBlockCount > 0) {
+    maxBlockCount = Number(localStorage.maxBlockCount) || (6 * 12);
   }
 
   function handleError(msg) {
@@ -96,7 +107,11 @@ $(function () {
   }
 
   function updateStats() {
-    var parts = [String(blockCount) + " blocks"];
+    var hours = Math.round(blockCount * 10 / 60);
+    var parts = [
+      "Last " + String(hours) + " hours",
+      String(blockCount) + " blocks"
+    ];
     if (emptyBlocks) { parts.push(String(emptyBlocks) + " empty blocks"); }
 
     $('#stats').text(parts.join(' - '));
@@ -117,7 +132,7 @@ $(function () {
       addEmptyBlock();
     }
 
-    if (blockCount >= (10 * 6)) { return; }
+    if (blockCount >= maxBlockCount) { return; }
 
     if (cached) {
       fetchBlock(block.prev_block_hash, receiveBlock);
@@ -134,6 +149,15 @@ $(function () {
         window.location = 'index.html';
       }
     });
+
+    function changeHistorySize(x) {
+      localStorage.maxBlockCount = x;
+      window.location = 'index.html';
+    }
+
+    $('#size12h').click(function () { changeHistorySize(6 * 12); });
+    $('#size24h').click(function () { changeHistorySize(6 * 24); });
+    $('#size48h').click(function () { changeHistorySize(6 * 48); });
   }
 
   fetchBlock('latest', receiveBlock);
