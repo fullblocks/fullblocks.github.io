@@ -2,167 +2,27 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>How full are Bitcoin blocks?</title>
-<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+  <title>How full are Bitcoin blocks?</title>
 
-<!-- Github got confused -->
+  <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+  <script src="fullblocks.js"></script>
 
-<style>
-html {
-  font-family: Arial, sans-serif;
-  font-size: 16px;
-  background: #fff;
-  color: #222;
-}
-
-#percent {
-  font: 300px Arial;
-  font-weight: bold;
-  text-align: center;
-  color: #222;
-  text-shadow: 0 10px #777;
-}
-
-#text {
-  color: #555;
-  text-align: center;
-}
-
-#stats {
-
-}
-
-</style>
-
+  <link rel="stylesheet" type="text/css" href="fullblocks.css">
 </head>
 
 <body>
-<div id="percent">...</div>
-<div id="text">
-  <div id="stats"></div>
-  <div>
-    <a href="#" id="reset">Reset Stats</a> -
-    <a href="#" id="size12h">12h</a> -
-    <a href="#" id="size24h">24h</a> -
-    <a href="#" id="size48h">48h</a>
+  <div id="percent">...</div>
+  <div id="text">
+    <div id="stats"></div>
+    <div>
+      <a href="#" id="reset">Reset Stats</a> -
+      <a href="#" id="size12h">12h</a> -
+      <a href="#" id="size24h">24h</a> -
+      <a href="#" id="size48h">48h</a>
+    </div>
+    <div>
+      <a href="https://github.com/fullblocks/fullblocks.github.io" target="_">Source Code</a>
+    </div>
   </div>
-
-</div>
-<script>
-$(function () {
-  var maxBlockSize = 1024 * 1024;
-  var minTransactions = 10;
-  var maxBlockCount = 6 * 12;
-  var sizes = {};
-  var averageSize = 0;
-  var blockCount = 0;
-  var percentFull = 0;
-  var emptyBlocks = 0;
-  var cache = {};
-
-  if (localStorage && localStorage.cache) {
-    cache = JSON.parse(localStorage.cache);
-  }
-
-  if (localStorage && localStorage.maxBlockCount > 0) {
-    maxBlockCount = Number(localStorage.maxBlockCount) || (6 * 12);
-  }
-
-  function handleError(msg) {
-    alert(msg);
-  }
-
-  function addSize(hash, bytes) {
-    if (hash in sizes) { return; }
-    bytes = Number(bytes);
-    blockCount++;
-    sizes[hash] = bytes;
-    averageSize = 0;
-    Object.keys(sizes).forEach(function (key) { averageSize += sizes[key]; });
-    averageSize = averageSize / blockCount;
-    percentFull = Math.round((averageSize / maxBlockSize) * 100);
-    $('#percent').text(String(percentFull) + "%");
-    updateStats();
-  }
-
-  function fetchBlock(x, f) {
-    if (x !== 'latest' && (x in cache)) {
-      f(cache[x], true);
-      return;
-    }
-
-    return $.ajax({
-      url: "https://btc.blockr.io/api/v1/block/info/" + String(x),
-      success: function (response) {
-        if (!response || response.status !== 'success') {
-          f();
-          return;
-        }
-
-        cache[response.data.hash] = response.data;
-        localStorage.cache = JSON.stringify(cache);
-        f(response.data, false)
-      }
-    });
-  }
-
-  function updateStats() {
-    var hours = Math.round(blockCount * 10 / 60);
-    var parts = [
-      "Last " + String(hours) + " hours",
-      String(blockCount) + " blocks"
-    ];
-    if (emptyBlocks) { parts.push(String(emptyBlocks) + " empty blocks"); }
-
-    $('#stats').text(parts.join(' - '));
-  }
-
-  function addEmptyBlock() {
-    blockCount++;
-    emptyBlocks++;
-    updateStats();
-  }
-
-  function receiveBlock(block, cached) {
-    if (!block) { return handleError("Unable to fetch latest block"); }
-
-    if (block.nb_txs >= minTransactions) {
-      addSize(block.hash, block.size);
-    } else {
-      addEmptyBlock();
-    }
-
-    if (blockCount >= maxBlockCount) { return; }
-
-    if (cached) {
-      fetchBlock(block.prev_block_hash, receiveBlock);
-    } else {
-      setTimeout(function () {
-        fetchBlock(block.prev_block_hash, receiveBlock);
-      }, 250);
-    }
-
-    $('#reset').click(function () {
-      if (localStorage) {
-        cache = {};
-        localStorage.cache = '{}';
-        window.location = 'index.html';
-      }
-    });
-
-    function changeHistorySize(x) {
-      localStorage.maxBlockCount = x;
-      window.location = 'index.html';
-    }
-
-    $('#size12h').click(function () { changeHistorySize(6 * 12); });
-    $('#size24h').click(function () { changeHistorySize(6 * 24); });
-    $('#size48h').click(function () { changeHistorySize(6 * 48); });
-  }
-
-  fetchBlock('latest', receiveBlock);
-});
-</script>
 </body>
-
 </html>
