@@ -151,6 +151,7 @@ $(function () {
   }
 
   $('#reset').click(function () { resetStats(); });
+  $('#size6h').click(function () { changeHistorySize(6 * 6); });
   $('#size12h').click(function () { changeHistorySize(6 * 12); });
   $('#size24h').click(function () { changeHistorySize(6 * 24); });
   $('#size48h').click(function () { changeHistorySize(6 * 48); });
