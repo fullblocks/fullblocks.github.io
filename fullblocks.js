@@ -9,11 +9,7 @@ $(function () {
   var blockCount = 0;
   var percentFull = 0;
   var emptyBlocks = 0;
-  var cache = {};
-
-  if (localStorage && localStorage.cache) {
-    cache = JSON.parse(localStorage.cache);
-  }
+  var groupSize = 20;
 
   if (localStorage && localStorage.maxBlockCount > 0) {
     maxBlockCount = Number(localStorage.maxBlockCount) || (6 * 12);
@@ -34,44 +30,68 @@ $(function () {
     updateStats();
   }
 
-  function fetchBlock(x, f) {
-    if (x !== 'latest' && (x in cache)) {
-      f(cache[x], true);
-      return;
+  function updateChain() {
+    fetchData('last', function (last) {
+      if (!last) { return handleError("Can't download first block"); }
+      var oldest = last.nb;
+
+      function tick() {
+        fetchMultiple(oldest, groupSize, function (blocks) {
+          blocks.forEach(function (block) {
+            oldest = Math.min(oldest, block.nb);
+            receiveBlock(block);
+          });
+
+          if (oldest > last.nb - maxBlockCount) {
+            setTimeout(tick, 333);
+          }
+        });
+      }
+
+      tick();
+    });
+  }
+
+  function fetchMultiple(start, count, f) {
+    var more = [];
+
+    for (var i=0; i < count; i++) {
+      more.push(String(start - 1 - i));
+    }
+
+    fetchData(more, f);
+  }
+
+  function fetchData(x, f) {
+    if ($.isArray(x)) {
+      x = x.join(",");
+    } else {
+      x = String(x);
     }
 
     return $.ajax({
-      url: "https://btc.blockr.io/api/v1/block/info/" + String(x),
+      url: "https://btc.blockr.io/api/v1/block/info/" + x,
       success: function (response) {
         if (!response || response.status !== 'success') {
           f();
           return;
         }
 
-        cache[response.data.hash] = response.data;
-        localStorage.cache = JSON.stringify(cache);
-        f(response.data, false)
+        f(response.data);
       }
     });
   }
 
-  function receiveBlock(block, cached) {
-    if (!block) { return handleError("Unable to fetch latest block"); }
+  function receiveBlock(block) {
+    if (!block) {
+      console.log(block);
+      return handleError("Unable to fetch latest block");
+    }
 
     if (block.nb_txs >= minTransactions) {
       addBlock(block);
     } else {
       addEmptyBlock();
-    }
-
-    if (blockCount >= maxBlockCount) { return; }
-
-    if (cached) {
-      fetchBlock(block.prev_block_hash, receiveBlock);
-    } else {
-      setTimeout(function () {
-        fetchBlock(block.prev_block_hash, receiveBlock);
-      }, 250);
     }
   }
 
@@ -137,11 +157,6 @@ $(function () {
   }
 
   function resetStats() {
-    if (localStorage) {
-      cache = {};
-      localStorage.cache = '{}';
-    }
-
     window.location = 'index.html';
   }
 
@@ -156,5 +171,5 @@ $(function () {
   $('#size24h').click(function () { changeHistorySize(6 * 24); });
   $('#size48h').click(function () { changeHistorySize(6 * 48); });
 
-  fetchBlock('latest', receiveBlock);
+  updateChain();
 });
