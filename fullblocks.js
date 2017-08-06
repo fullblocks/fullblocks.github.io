@@ -1,175 +1,167 @@
 $(function () {
-  var maxBlockSize = 1000 * 1000;
-  var minTransactions = 10;
-  var maxBlockCount = 6 * 12;
-  var totalSize = 0;
-  var totalTxCount = 0;
-  var txRate = 0;
-  var averageSize = 0;
-  var blockCount = 0;
-  var percentFull = 0;
-  var emptyBlocks = 0;
-  var groupSize = 20;
+  var cutoffEnd = time();
+  var cutoffStart = cutoffEnd - (60 * 60 * 24);
 
-  if (localStorage && localStorage.maxBlockCount > 0) {
-    maxBlockCount = Number(localStorage.maxBlockCount) || (6 * 12);
+  var stats = {
+    legacy: createStats(1 * 1000 * 1000),
+    cash: createStats(8 * 1000 * 1000)
+  };
+
+  var formatters = {
+    bytes: formatBytes,
+    number: formatNumber,
+    time: formatTime
+  };
+
+  function createStats(size) {
+    return {
+      blocklimit: size,
+      blocks: 0,
+      txs: 0,
+      size: 0,
+      usage: 0,
+      oldest: Infinity, newest: -Infinity
+    };
   }
 
-  function handleError(msg) {
-    alert(msg);
+  function updateStats(s, info) {
+    s.blocks += 1;
+    s.size += Math.floor(info.size);
+    s.txs += Math.floor(info.txs);
+    s.oldest = Math.min(s.oldest, info.time);
+    s.newest = Math.max(s.newest, info.time);
+    s.timespan = s.newest - s.oldest;
+    s.tps = Number(s.txs / s.timespan).toFixed(2);
+    s.usage = percent(s.size, s.blocks * s.blocklimit);
   }
 
-  function addBlock(block) {
-    blockCount++;
-    totalSize += Number(block.size);
-    totalTxCount += Number(block.nb_txs);
-
-    calculateAverage();
-    calculatePercentage();
-    calculateTxRate();
-    updateStats();
+  function formatBytes(bytes) {
+    var kb = bytes / 1000;
+    var mb = kb / 1000;
+    return [mb.toFixed(2), 'MB'].join(' ');
   }
 
-  function updateChain() {
-    fetchData('last', function (last) {
-      if (!last) { return handleError("Can't download first block"); }
-      var oldest = last.nb;
+  function formatNumber(x) {
+    return Number(x).toLocaleString();
+  }
 
-      function tick() {
-        fetchMultiple(oldest, groupSize, function (blocks) {
-          blocks.forEach(function (block) {
-            oldest = Math.min(oldest, block.nb);
-            receiveBlock(block);
-          });
+  function formatTime(x) {
+    return String(new Date(x * 1000));
+  }
 
-          if (oldest > last.nb - maxBlockCount) {
-            setTimeout(tick, 333);
-          }
-        });
-      }
-
-      tick();
+  function showStats(chain) {
+    $('[data-' + chain + ']').each(function (i, node) {
+      var key = $(node).data(chain);
+      var format = $(node).data('format');
+      var value = stats[chain][key];
+      var f = formatters[format];
+      if (f) { value = f(value); }
+      $(node).text(value);
     });
   }
 
-  function fetchMultiple(start, count, f) {
-    var more = [];
+  function cashrpc(method, params) {
+    var defer = $.Deferred(), request = {
+      method: method,
+      params: params
+    };
 
-    for (var i=0; i < count; i++) {
-      more.push(String(start - 1 - i));
-    }
+    $.post('https://hashes.download/api', request).done(function (response) {
+      if (response && ('result' in response)) {
+        defer.resolve(response.result);
+      } else {
+        defer.reject(response.error || "Unknown error");
+      }
+    }).fail(defer.reject);
 
-    fetchData(more, f);
+    return defer.promise();
   }
 
-  function fetchData(x, f) {
-    if ($.isArray(x)) {
-      x = x.join(",");
-    } else {
-      x = String(x);
-    }
+  function legacyrpc(method, params) {
+    params = params || {};
+    params.format = 'json';
+    params.cors = true;
+    return $.get('https://blockchain.info/' + String(method), params);
+  }
 
-    return $.ajax({
-      url: "https://btc.blockr.io/api/v1/block/info/" + x,
-      success: function (response) {
-        if (!response || response.status !== 'success') {
-          f();
-          return;
-        }
+  function fetchLegacyChain() {
+    var ms = (cutoffEnd * 1000);
 
-        f(response.data);
-      }
+    legacyrpc('blocks/' + String(ms)).then(function (response) {
+      console.log("Legacy block list", response.blocks);
+      var stack = response.blocks;
+      var latest = stack.pop();
+      fetchLegacyBlock(latest.hash, stack);
     });
   }
 
-  function receiveBlock(block) {
-    if (!block) {
-      console.log(block);
-      return handleError("Unable to fetch latest block");
+  function fetchLegacyBlock(hash, stack) {
+    if (hash in localStorage) {
+      updateLegacyBlock(JSON.parse(localStorage[hash]), stack);
+      return;
     }
 
-    if (block.nb_txs >= minTransactions) {
-      addBlock(block);
-    } else {
-      addEmptyBlock();
+    legacyrpc('rawblock/' + hash).then(function (block) {
+      updateLegacyBlock(block, stack);
+    });
+  }
+
+  function updateLegacyBlock(block, stack) {
+    var info = {
+      size: block.size,
+      txs: block.n_tx,
+      time: block.time
+    };
+
+    delete block.tx;
+    localStorage[block.hash] = JSON.stringify(block);
+    console.log("Legacy block", info);
+
+    updateStats(stats.legacy, info);
+    showStats('legacy');
+    if (stack.length <= 0) { return; }
+    var next = stack.pop();
+    fetchLegacyBlock(next.hash, stack);
+  }
+
+  function time() {
+    return (Date.now() / 1000) | 0;
+  }
+
+  function percent(x, max) {
+    var p = (x / max) * 100.0;
+    return String(p.toFixed(2)) + '%';
+  }
+
+  function fetchCashChain() {
+    cashrpc('getblockcount').then(function (latest) {
+      console.log("Cash block height is", latest);
+
+      cashrpc('getblockhash', [latest]).then(function (hash) {
+        console.log("Latest cash block is ", hash);
+        fetchCashBlock(hash);
+      });
+    });
+  }
+
+  function fetchCashBlock(hash) {
+    if (hash in localStorage) {
+      updateCashBlock(JSON.parse(localStorage[hash]));
+      return;
     }
+
+    cashrpc('getblock', [hash]).then(updateCashBlock);
   }
 
-  function calculateAverage() {
-    averageSize = 0;
-    if (blockCount <= 0) { return; }
-    averageSize = totalSize / blockCount;
+  function updateCashBlock(block) {
+    console.log("Cash block", block);
+    if (block.time < cutoffStart) { return; }
+    localStorage[block.hash] = JSON.stringify(block);
+    updateStats(stats.cash, {size: block.size, txs: block.tx.length, time: block.time});
+    showStats('cash');
+    fetchCashBlock(block.previousblockhash);
   }
 
-  function calculatePercentage() {
-    percentFull = Math.round((averageSize / maxBlockSize) * 100);
-  }
-
-  function calculateTxRate() {
-    if (blockCount <= 0) { totalTxCount = 0; }
-    txRate = Math.round(totalTxCount / blockCount / 10 / 60);
-  }
-
-  function labelPercentage() {
-    return String(percentFull) + "%";
-  }
-
-  function labelTime() {
-    var hours = Math.round(blockCount * 10 / 60);
-    return "Last " + String(hours) + " hours";
-  }
-
-  function labelBlockCount() {
-    return (String(blockCount) + " blocks " + labelEmptyBlockCount()).trim();
-  }
-
-  function labelEmptyBlockCount() {
-    return (emptyBlocks > 0) ? ("(" + String(emptyBlocks) + " empty)") : "";
-  }
-
-  function labelSize() {
-    var kb = Math.round(averageSize / 1000);
-    return String(kb) + " KB";
-  }
-
-  function labelTxRate() {
-    return String(txRate) + " tx/s";
-  }
-
-  function labelStats() {
-    return [
-      labelTime(),
-      labelBlockCount(),
-      labelSize(),
-      labelTxRate()
-    ].join(' - ');
-  }
-
-  function updateStats() {
-    $('#percent').text(labelPercentage());
-    $('#stats').text(labelStats());
-  }
-
-  function addEmptyBlock() {
-    blockCount++;
-    emptyBlocks++;
-    updateStats();
-  }
-
-  function resetStats() {
-    window.location = 'index.html';
-  }
-
-  function changeHistorySize(x) {
-    localStorage.maxBlockCount = x;
-    window.location = 'index.html';
-  }
-
-  $('#reset').click(function () { resetStats(); });
-  $('#size6h').click(function () { changeHistorySize(6 * 6); });
-  $('#size12h').click(function () { changeHistorySize(6 * 12); });
-  $('#size24h').click(function () { changeHistorySize(6 * 24); });
-  $('#size48h').click(function () { changeHistorySize(6 * 48); });
-
-  updateChain();
+  fetchCashChain();
+  fetchLegacyChain();
 });
