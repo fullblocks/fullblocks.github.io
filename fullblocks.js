@@ -85,12 +85,13 @@ $(function () {
   }
 
   function fetchLegacyChain() {
-    var ms = (cutoffEnd * 1000);
+    var seconds = cutoffStart;
+    var ms = (seconds * 1000);
 
     legacyrpc('blocks/' + String(ms)).then(function (response) {
       console.log("Legacy block list", response.blocks);
       var stack = response.blocks;
-      var latest = stack.pop();
+      var latest = stack.shift();
       fetchLegacyBlock(latest.hash, stack);
     });
   }
@@ -120,7 +121,7 @@ $(function () {
     updateStats(stats.legacy, info);
     showStats('legacy');
     if (stack.length <= 0) { return; }
-    var next = stack.pop();
+    var next = stack.shift();
     fetchLegacyBlock(next.hash, stack);
   }
 
