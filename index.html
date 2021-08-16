@@ -3,13 +3,7 @@
 <head>
 <meta charset="utf-8">
   <title>How full are Bitcoin blocks?</title>
-
-  <link rel="stylesheet" type="text/css" href="fullblocks.css">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-
-  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
-  <script src="fullblocks.js"></script>
 </head>
 <body>
   <div class="container">
@@ -17,107 +11,14 @@
       How full is the Bitcoin Blockchain?
     </h1>
 
-    <hr/>
+    <h2>
+      Always full.
+    </h2>
 
-    <div class="row">
-      <div class="col-xs-6">
-        <table class="table">
-          <thead>
-            <tr>
-              <th class="text-center" colspan="2">Bitcoin Cash</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th width="1">Usage</th>
-              <td data-cash="usage"></td>
-            </tr>
-            <tr>
-              <th>TXs</th>
-              <td>
-                <span data-cash="txs" data-format="number"></span>
-                <span class="text-muted"><span data-cash="tps"></span> TX/s</span>
-              </td>
-            </tr>
-            <tr>
-              <th>Blocks</th>
-              <td data-cash="blocks" data-format="number"></td>
-            </tr>
-            <tr>
-              <th>Size</th>
-              <td data-cash="size" data-format="bytes"></td>
-            </tr>
-            <tr>
-              <th>Newest</th>
-              <td data-cash="newest" data-format="time"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="col-xs-6">
-        <table class="table">
-          <thead>
-            <tr>
-              <th class="text-center" colspan="2">Legacy Bitcoin</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th width="1">Usage</th>
-              <td data-legacy="usage"></td>
-            </tr>
-            <tr>
-              <th>TXs</th>
-              <td>
-                <span data-legacy="txs" data-format="number"></span>
-                <span class="text-muted"><span data-legacy="tps"></span> TX/s</span>
-              </td>
-            </tr>
-            <tr>
-              <th>Blocks</th>
-              <td data-legacy="blocks" data-format="number"></td>
-            </tr>
-            <tr>
-              <th>Size</th>
-              <td data-legacy="size" data-format="bytes"></td>
-            </tr>
-            <tr>
-              <th>Newest</th>
-              <td data-legacy="newest" data-format="time"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div> <!-- .row -->
-
-    <!--
-    <div class="text-center">
-      <div class="btn-group">
-        <button type="button" class="btn btn-default">
-          2 hours
-        </button>
-
-        <button type="button" class="btn btn-default active">
-          24 hours
-        </button>
-
-        <button type="button" class="btn btn-default">
-          48 hours
-        </button>
-      </div>
-    </div>
-    -->
-
-    <hr/>
-
-    <footer>
-      <p class="text-center text-muted">
-        Version: 2.0
-        -
-        <a href="https://github.com/fullblocks/fullblocks.github.io">Source Code</a>
-      </p>
-    </footer>
-
-  </div> <!-- .container -->
+    <p>
+      Originally this website calculated how full the Bitcoin blockchain was,
+      but for years now it's been entirely full, so there is no point!
+    </p>
+  </div>
 </body>
 </html>
